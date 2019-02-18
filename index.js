@@ -1,5 +1,5 @@
 const net = require("net");
-var readline = require("readline");
+const readline = require("readline");
 
 const { Client } = require("ssh2");
 

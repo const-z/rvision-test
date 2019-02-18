@@ -2,7 +2,18 @@ const path = require("path");
 
 const moment = require("moment");
 
+/**
+ * Обработчик пользовательских команд
+ * @class UserCommand
+ */
 class UserCommand {
+  /**
+   * Конструктор экземпляра класса UserCommand
+   *
+   * @param {ssh2.Client} sshClient клиент ssh сессии
+   * @param {Stream} shell поток ввода-вывода для взаимодействия с удаленным терминалом
+   * @param {String} workDir рабочая директория по-умолчанию
+   */
   constructor({ sshClient, shell, workDir = "./" }) {
     this.commands = {
       get: "`Downloading from ${from} to ${to}`",
@@ -16,6 +27,12 @@ class UserCommand {
     this.workDir = workDir;
   }
 
+  /**
+   * Определить, являются ли введенные данные в терминале клиентской командой.
+   * Если да, то запустить соотвествующую команду
+   *
+   * @param {String} line строка, которая может являться пользовательской командой
+   */
   execute(line) {
     this.command = null;
     const matches = line.match(this.standardPrompt);
@@ -52,21 +69,41 @@ class UserCommand {
     }
   }
 
+  /**
+   * Заменить литералы в строке s на соответствующие занчения параметров (params)
+   * @param {String} s литеральная строка
+   * @param {Object} params параметры для заполнения
+   * @returns {String}
+   */
   _compileTemplate(s, params) {
     return Function(...Object.keys(params), "return " + s)(...Object.values(params));
   }
 
+  /**
+   * Очистить терминальный буфер
+   */
   _flush() {
     while (this.shell.stdin.read() !== null) {}
     while (this.shell.stdout.read() !== null) {}
   }
 
+  /**
+   * Нормализовать путь, чтобы он был виден для удаленного sftp подключения
+   *
+   * @param {String} from
+   */
   _normalize(from) {
     const pathFrom = path.normalize([this.currentDir.trim(), from].join("/")).replace(/\\/g, "/");
 
     return pathFrom;
   }
 
+  /**
+   * Вывести ошибку
+   *
+   * @param {Error} err
+   * @returns {Boolean} если ошибка, то true
+   */
   _error(err) {
     if (!err) {
       return false;
@@ -77,6 +114,13 @@ class UserCommand {
     return true;
   }
 
+  /**
+   * Выполнить команду get - скачать файл с удаленного сервера
+   *
+   * @param {String} from путь к файлу на удаленном сервере
+   * @param {String} to путь к файлу на локальной машине
+   * @param {Function} callback
+   */
   _commandGet(from, to, callback) {
     if (!to) {
       const p = path.parse(from);
@@ -108,6 +152,13 @@ class UserCommand {
     });
   }
 
+  /**
+   * Выполнить команду put - отправить файл на удаленный сервер
+   *
+   * @param {String} from путь к файлу на локальной машине
+   * @param {String} to путь к файлу на удаленном сервере
+   * @param {Function} callback
+   */
   _commandPut(from, to, callback) {
     if (!to) {
       const p = path.parse(from);
@@ -138,6 +189,10 @@ class UserCommand {
     });
   }
 
+  /**
+   * Выбрать коменду и выполнить ее
+   * @param {Function} callback
+   */
   _execute(callback) {
     if (!this.command) {
       return callback();
